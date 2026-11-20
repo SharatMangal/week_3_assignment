@@ -55,3 +55,4 @@ backend/*.pyc
 
 
 *.npz
+backend/embeddings_BAAI_bge_large_en_v1.5/

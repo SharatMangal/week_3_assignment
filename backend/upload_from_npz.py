@@ -23,7 +23,8 @@ load_dotenv()
 # Configuration
 COLLECTION_NAME = "siggraph2025_papers"
 CHUNKS_PATH = "./chunks.json"
-EMBEDDINGS_PATH = "./embeddings_BAAI_bge_large_en_v1.5.npz"
+EMBEDDINGS_PATH = "./embeddings_BAAI_bge_large_en_v1.5/embeddings.npy"
+CHUNK_IDS_PATH = "./embeddings_BAAI_bge_large_en_v1.5/chunk_ids.npy"
 VECTOR_SIZE = 1024  # Dimension for BAAI/bge-large-en-v1.5
 BATCH_SIZE = 100  # Can be larger since no API calls needed
 
@@ -39,12 +40,20 @@ def load_chunks(path: str) -> list[dict]:
 
 
 def load_embeddings(path: str) -> np.ndarray:
-    """Load pre-computed embeddings from .npz file."""
+    """Load pre-computed embeddings from a .npy file."""
     print(f"Loading embeddings from {path}...")
-    data = np.load(path)
-    embeddings = data['embeddings']
+    embeddings = np.load(path)
     print(f"Loaded {len(embeddings)} embeddings with dimension {embeddings.shape[1]}")
     return embeddings
+
+
+def verify_chunk_order(chunks: list[dict], chunk_ids_path: str):
+    """Ensure embeddings (matched to chunks by position) are in the same order as chunks.json."""
+    ids = [str(x) for x in np.load(chunk_ids_path, allow_pickle=True)]
+    expected = [c["chunk_id"] for c in chunks]
+    if ids != expected:
+        raise ValueError("chunk_ids.npy order does not match chunks.json - refusing to upload")
+    print("✓ Embedding order matches chunks.json")
 
 
 def create_qdrant_collection(client: QdrantClient, collection_name: str, vector_size: int, recreate: bool = False):
@@ -134,7 +143,8 @@ def main():
     parser = argparse.ArgumentParser(description="Upload pre-computed embeddings to Qdrant")
     parser.add_argument("--recreate", action="store_true", help="Delete existing collection and start fresh")
     parser.add_argument("--chunks", type=str, default=CHUNKS_PATH, help="Path to chunks.json")
-    parser.add_argument("--embeddings", type=str, default=EMBEDDINGS_PATH, help="Path to embeddings .npz file")
+    parser.add_argument("--embeddings", type=str, default=EMBEDDINGS_PATH, help="Path to embeddings .npy file")
+    parser.add_argument("--chunk-ids", type=str, default=CHUNK_IDS_PATH, help="Path to chunk_ids .npy file")
     args = parser.parse_args()
     
     # Load environment variables
@@ -164,7 +174,8 @@ def main():
     # Load data
     chunks = load_chunks(args.chunks)
     embeddings = load_embeddings(args.embeddings)
-    
+    verify_chunk_order(chunks, args.chunk_ids)
+
     # Create collection
     create_qdrant_collection(client, COLLECTION_NAME, VECTOR_SIZE, recreate=args.recreate)
     
