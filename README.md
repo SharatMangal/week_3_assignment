@@ -771,7 +771,43 @@ siggraph-rag/
 
 ---
 
-## 10. Submission Checklist
+## FOR TA to review as assignment output 
+
+## 10A Implementation Notes
+
+**Live demo**
+- Frontend: https://week-3-assignment-eight.vercel.app/
+- Backend: https://week-3-assignment-r3gf.onrender.com/ (`/health`, `/docs`)
+
+
+**What I implemented**
+- `retrieval_pipeline.py`: hybrid retrieval. Queries are embedded via OpenRouter
+  (`baai/bge-large-en-v1.5`) and searched in Qdrant; BM25 (`rank-bm25`) runs locally.
+  Scores from each method are normalized by their max and combined
+  (0.7 semantic + 0.3 BM25). An optional Cohere reranker refines the top candidates.
+- `rag_generate.py`: refines the query with a small LLM, formats the retrieved chunks
+  as numbered sources, calls the LLM through OpenRouter (`openai/gpt-4o-mini`), and
+  returns the answer with deduplicated source metadata.
+- `api_server.py`: now imports the real `RAGGenerator` instead of the mock.
+
+**Design decisions / deviations from the starter code**
+- Embeddings were uploaded from the provided `.npy` files (Option A). I changed
+  `upload_from_npz.py` to read `.npy` instead of `.npz` and added a check that
+  `chunk_ids.npy` matches the order of `chunks.json`, since vectors are paired
+  with chunks by position.
+- `_build_sources_metadata` returns a dict keyed by title (not a list), because
+  `api_server.py` calls `.values()` on it. `generate()` converts it to a list.
+- `GenerationConfig` gained `llm_provider` and `use_reranker` fields, which
+  `api_server.py` passes in. `llm_model` is a bare name (`gpt-4o-mini`) because the
+  server prefixes it with `openai/`.
+- Reranking is optional. On any Cohere error the pipeline falls back to hybrid
+  ranking. The deployed app runs with `RERANKER_TYPE=none`.
+- `.env.example` lists only the variables the code actually reads.
+
+
+
+
+## 10B. Submission Checklist
 
 Before submitting your project, ensure:
 
